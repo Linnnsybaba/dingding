@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>订单列表</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1,user-scalable=no">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black">
+		<link rel="stylesheet" href="css/main.css">
+		<link rel="stylesheet" href="css/mui.min.css">
+		<script type="text/javascript" src="https://cdn.bootcss.com/babel-polyfill/7.4.3/polyfill.min.js"></script>
+		<script src="js/mui.min.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/app.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/md5.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/store.js" type="text/javascript" charset="utf-8"></script>
+		<script src="http://libs.baidu.com/jquery/2.0.0/jquery.min.js" type="text/javascript" charset="utf-8"></script>
+		<!-- <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script> -->
+		<script src="js/vue.js" type="text/javascript" charset="utf-8"></script>
+		<script src="https://unpkg.com/better-scroll@1.0.1/dist/bscroll.min.js" type="text/javascript" charset="utf-8"></script>
+		<script src="js/BluetoothTool.js" type="text/javascript" charset="utf-8"></script>
+		<script type="text/javascript" src="http://cdn.staticfile.org/jquery.qrcode/1.0/jquery.qrcode.min.js"></script>
+		<script type="text/javascript" src="http://static.runoob.com/assets/qrcode/qrcode.min.js"></script>
+		<script src="js/main.js" type="text/javascript" charset="utf-8"></script>
+	</head>
+	<body>
+		<div id="app">
+			<header class="mui-bar mui-bar-nav" style="padding-right: 15px;">
+				<h1 class="mui-title">订单列表</h1>
+				<button id='setting' class="mui-pull-right mui-btn-link">设置</button>
+			</header>
+			<div style="display: none">
+				<audio controls id='play' ref="autoplay">
+					<source src="video/voice.mp3" type="audio/mpeg">
+				</audio> 
+			</div>
+			
+			<transition name="gotop">
+				<div class="goTop" ref="goTop" v-show="goTop">
+					<img src="images/gotop.png" width="40" height="40">
+				</div>
+			</transition>
+
+			<div id="pullrefresh" class="mui-content" ref="wrapper">
+				<div>
+					<div class="top-tip">
+						<span class="refresh-hook" v-html="pulldownMsg">{{pulldownMsg}}</span>
+					</div>
+					<transition name="hook">
+						<div class="alert alert-hook" ref="alert" v-show="alertHook">{{alertMsg}}</div>
+					</transition>
+					<div class="noData" v-show="orders.length<=0">
+						<img src="images/nodata.png">
+						<p class="text">暂无数据</p>
+					</div>
+					<ul id="content" class="content table-view">
+						<li v-for="(order, index) in orders" v-show="order.id" class="order-item">
+							<div id="qrcode" hidden="hidden"></div>
+							<div class="orderWrapper">
+								<h1 class="top">{{order.title}}</h1>
+								<div class="order" @click.stop.prevent="orderClick(order, index)">
+									<div class="order_int">
+										<p class="total">合计金额</p>
+										<p class="totalPrice">
+											<span class="mark">￥</span>
+											<span class="price">{{ order.amt }}</span>
+										</p>
+										<p class="order_num">订单号: <span>{{ order.id }}</span>
+									</div>
+									<div class="order_detail">
+										<div class="detail_wrapper">
+											<div class="customer">
+												<p class="name">联系人:
+													<span>{{ order.name }}({{ order.gender == '1'?'先生':'女士' }})</span></p>
+												<p class="phone">联系电话: <span>{{ order.phone }}</span></p>
+											</div>
+											<p class="order_date">订单时间: <span>{{ format(order.time) }}</span></p>
+											<p class="address">配送地址: <span>{{ order.address }}</span></p>
+											<p class="remark" v-show="order.remark">备注: <span>{{order.remark}}</span></p>
+										</div>
+									</div>
+									<div class="print_count">
+										<p class="print">打印次数: <span>{{ order.printCount }}</span></p>
+									</div>
+								</div>
+								<div class="more_wrapper">
+									<div class="more" @click="moreDetailClick(order, index)">
+										<span class="mui-icon mui-icon-bars"></span>
+										<p class="title" v-show="!order.showDetail">单击查看详细商品</p>
+									</div>
+									<div class="goodsDetail" v-show="order.showDetail">
+										<div class="goodWrap">
+											<ul>
+												<div class="subject">
+													<p class="title">商品名称</p>
+													<p class="pty">数量</p>
+													<p class="price">单价</p>
+												</div>
+												<li class="list" v-for="(list, index) in order.list">
+													<p class="title">{{list.title}}</p>
+													<p class="pty">x{{list.qty}}</p>
+													<p class="price">{{list.price}}</p>
+												</li>
+											</ul>
+										</div>
+									</div>
+								</div>
+							</div>
+						</li>
+						<div class="upwarp-nodata" v-show="orders.length > 0">没有更多了</div>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</body>
+
+	<script type="text/javascript">
+		
+		(function($, doc) {
+			$('#pullrefresh').scroll();
+			window.addEventListener('show', function() {
+				var state = app.getState();
+				mui.toast('欢迎您! ' + state.account);
+				localStorage.setItem("sess_id", state.sess_id)
+			}, false);
+			$.plusReady(function() {
+				var settingPage = $.preload({
+					"id": 'setting',
+					"url": 'setting.html'
+				});
+				//设置
+				var settingButton = doc.getElementById('setting');
+				//settingButton.style.display = settings.autoLogin ? 'block' : 'none';
+				settingButton.addEventListener('tap', function(event) {
+					$.openWindow({
+						id: 'setting',
+						show: {
+							aniShow: 'pop-in'
+						},
+						styles: {
+							popGesture: 'hide'
+						},
+						waiting: {
+							autoShow: false
+						}
+					});
+				});
+				$.oldBack = mui.back;
+				var backButtonPress = 0;
+				$.back = function(event) {
+					backButtonPress++;
+					if (backButtonPress > 1) {
+						plus.runtime.quit();
+					} else {
+						plus.nativeUI.toast('再按一次退出应用');
+					}
+					setTimeout(function() {
+						backButtonPress = 0;
+					}, 1000);
+					return false;
+				};
+			});
+		}(mui, document));
+	</script>
+</html>
